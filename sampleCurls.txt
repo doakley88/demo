@@ -1,0 +1,9 @@
+
+//add a new group
+curl -d '{"name":"Pittsburgh2"}' -H 'Content-Type: application/json' -X POST localhost:8080/api/group
+
+//update an existing group
+curl -d '{"name":"Pittsburgh2","city":"Pittsburgh","country":"USA","address":"Downtown"}' -H 'Content-Type: application/json' -X PUT localhost:8080/api/group/6
+
+//delete an existing group
+curl -X DELETE localhost:8080/api/group/6
