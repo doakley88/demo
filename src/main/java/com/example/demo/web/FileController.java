@@ -6,6 +6,7 @@ import com.example.demo.model.ImageFileRepository;
 import com.example.demo.payload.UploadFileResponse;
 import com.example.demo.service.FileStorageService;
 import com.example.demo.util.ImageUtils;
+import javaxt.io.Image;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +19,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.imageio.ImageIO;
 import javax.servlet.http.HttpServletRequest;
 
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,9 +30,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@CrossOrigin(origins= "192.168.1.119:3000")
 @RestController
 public class FileController {
 
+    private static final int FRAG_WIDTH = 5;
+    private static final int FRAG_HEIGHT = 5;
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
 
     private static final Logger logger = LoggerFactory.getLogger(FileController.class);
@@ -44,6 +48,7 @@ public class FileController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @PostMapping("/uploadFile")
     public UploadFileResponse uploadFile(@RequestParam("file")MultipartFile file) {
         logger.info("got the file! " + file.getOriginalFilename());
@@ -56,6 +61,7 @@ public class FileController {
         return new UploadFileResponse(fileName, fileDownloadUri, file.getContentType(), file.getSize());
     }
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @PostMapping("/uploadMultipleFiles")
     public List<UploadFileResponse> uploadMultipleFiles(@RequestParam("files") MultipartFile[] files) {
         return Arrays.asList(files)
@@ -64,8 +70,11 @@ public class FileController {
                 .collect(Collectors.toList());
     }
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @GetMapping("/downloadFile/{fileName:.+}")
     public ResponseEntity<Resource> downloadFile(@PathVariable String fileName, HttpServletRequest request) {
+        logger.info("attempting to access " + fileName);
+
         //load file as resource
         Resource resource = fileStorageService.loadFileAsResource(fileName);
 
@@ -86,17 +95,21 @@ public class FileController {
 
     }
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @GetMapping("/list")
     Collection<ImageFile> list() {
+        logger.info("trying ot list the files");
         ArrayList<ImageFile> files = new ArrayList<>();
         List<Resource> resources = fileStorageService.loadResources();
         resources.forEach(resource -> {
+            logger.info("the download uri is " + getDownloadUri(resource.getFilename()));
             files.add(new ImageFile(resource.getFilename(), getDownloadUri(resource.getFilename()) ));
         });
 
         return files;
     }
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @DeleteMapping("/delete/{filename:.+}")
     public ResponseEntity<?> deleteImage(@PathVariable String filename) {
         logger.info("request to delete file: " + filename);
@@ -107,6 +120,7 @@ public class FileController {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
+    @CrossOrigin(origins= "192.168.1.119:3000")
     @PostMapping("/compose")
     public ResponseEntity<Resource> composeImage(@RequestParam("base") String baseFile,
                                                  @RequestParam("mapper") String mapperFile,
@@ -117,9 +131,8 @@ public class FileController {
         BufferedImage base;
         BufferedImage mapper;
         try {
-            base = ImageIO.read(fileStorageService.loadFileAsResource(baseFile).getFile());
-            mapper = ImageIO.read(fileStorageService.loadFileAsResource(mapperFile).getFile());
-
+            base = loadOrientedFile(baseFile);
+            mapper = loadOrientedFile(mapperFile);
         } catch (MyFileNotFoundException ex) {
             logger.info("Couldn't find one or more of the files the files "+ ex.getMessage());
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -128,7 +141,7 @@ public class FileController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
-        BufferedImage result = ImageUtils.remakeImage(mapper, base, 5, 5);
+        BufferedImage result = ImageUtils.remakeImage(mapper, base, FRAG_WIDTH, FRAG_HEIGHT);
         String filename = fileStorageService.storeFile(result, resultName);
         String fileDownloadUri = getDownloadUri(filename);
         logger.info("downloadUri is " + fileDownloadUri);
@@ -148,10 +161,6 @@ public class FileController {
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""+ resource.getFilename() + "\"")
                 .body(resource);
-
-
-
-
     }
 
     private String getDownloadUri(String fileName) {
@@ -159,7 +168,18 @@ public class FileController {
                 .path("/downloadFile/")
                 .path(fileName)
                 .toUriString();
+    }
 
+    /**
+     * Helper method that's gonna make sure we load something that's oriented properly
+     * @param filename
+     * @return
+     */
+    private BufferedImage loadOrientedFile(String filename) throws IOException {
+        File file = fileStorageService.loadFileAsResource(filename).getFile();
+        Image image = new Image(file);
+        image.rotate();
+        return image.getBufferedImage();
     }
 
 }

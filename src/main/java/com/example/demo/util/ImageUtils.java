@@ -56,6 +56,7 @@ public class ImageUtils {
         //If the two images are different sizes, scale the source to the model
         BufferedImage transformedSource = transformSource(source, normalizedModel);
 
+        log.info("creating result with width " + normalizedModel.getWidth() + " and height "+ normalizedModel.getHeight());
         BufferedImage result = new BufferedImage(normalizedModel.getWidth(), normalizedModel.getHeight(), BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = result.createGraphics();
         ArrayList<ArrayList<BufferedImage>> sourceFrags = breakdownImage(transformedSource, fragWidth, fragHeight);
@@ -129,7 +130,9 @@ public class ImageUtils {
         return imageFragments;
     }
 
-    //Helper to scale the source image to the model's dimensions
+    /**
+     * Helper to scale the source image to the model's dimensions
+     */
     public static BufferedImage transformSource(BufferedImage source, BufferedImage model) {
         //just give em the basics if we're already the same size
         if (source.getWidth() == model.getWidth() && source.getHeight() == model.getHeight()) {
@@ -141,23 +144,37 @@ public class ImageUtils {
         return result;
 
     }
-    //Helper to ensure that the model image isn't too big for us. Should try to make outdated at some point.
+
+    /**
+     * Helper to ensure that the model image isn't too big for us. Should try to make outdated at some point.
+     */
     public static BufferedImage normalizeModel(BufferedImage model) {
         BufferedImage result;
-        if(model.getWidth() > MAX_WIDTH) {
-            int scaledHeight = (MAX_WIDTH*model.getHeight())/model.getWidth();
-            result = new BufferedImage(MAX_WIDTH, scaledHeight, BufferedImage.TYPE_INT_RGB);
-            Graphics2D graphics = result.createGraphics();
-            graphics.drawImage(model, 0, 0, MAX_WIDTH, scaledHeight, null);
-            return normalizeModel(result);
-        } else if(model.getHeight() > MAX_HEIGHT) {
-            int scaledWidth = ((MAX_HEIGHT*model.getWidth())/model.getHeight());
-            result = new BufferedImage(scaledWidth, MAX_HEIGHT, BufferedImage.TYPE_INT_RGB);
-            Graphics2D graphics = result.createGraphics();
-            graphics.drawImage(model, 0,0, scaledWidth, MAX_HEIGHT, null);
+        if(model.getWidth() > MAX_WIDTH || model.getHeight() > MAX_HEIGHT) {
+            log.info("Gonna have to scale the image down " + model.getWidth()+ " " + model.getHeight());
+            float ratio;
+            Graphics2D graphics;
+            if((float) model.getWidth()/MAX_WIDTH > (float) model.getHeight()/MAX_HEIGHT) {
+                //We're wider than we are tall, scale based on width
+                ratio = (float)MAX_WIDTH/model.getWidth();
+                int scaledHeight = (int) (ratio*model.getHeight());
+                log.info("New Width = " + MAX_WIDTH + " New Height = " +scaledHeight);
+                result = new BufferedImage(MAX_WIDTH, scaledHeight, BufferedImage.TYPE_INT_RGB);
+                graphics = result.createGraphics();
+                graphics.drawImage(model, 0, 0, MAX_WIDTH, scaledHeight, null);
+            } else {
+                //We're taller than we are wide, scale based on height
+                ratio = (float)MAX_HEIGHT/model.getHeight();
+                int scaledWidth = (int) (ratio * model.getWidth());
+                log.info("New Width = " + scaledWidth + " New Height = " + MAX_HEIGHT);
+                result = new BufferedImage(scaledWidth, MAX_HEIGHT, BufferedImage.TYPE_INT_RGB);
+                graphics = result.createGraphics();
+                graphics.drawImage(model,0, 0, scaledWidth, MAX_HEIGHT, null);
+            }
             return result;
+        } else {
+            return model;
         }
-        return model;
     }
 }
 

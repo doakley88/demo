@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.exception.FileStorageException;
 import com.example.demo.exception.MyFileNotFoundException;
 import com.example.demo.property.FileStorageProperties;
+import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,16 +15,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -48,20 +47,23 @@ public class FileStorageService {
     public String storeFile(MultipartFile file) {
         //Normalize file name
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-
-        log.info("input filename is " + fileName);
+        InputStream in = null;
+        log.info("input; filename is " + fileName);
         try {
             if (fileName.contains("..")) {
                 throw new FileStorageException("Invalid path sequence in filename " + fileName);
             }
+            in = file.getInputStream();
 
             //Copy file to the target location, overridding if necessary
             Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
             return fileName;
         } catch (IOException iox) {
             throw new FileStorageException("Could not store file " + fileName, iox);
+        } finally {
+            IOUtils.closeQuietly(in);
         }
     }
 
