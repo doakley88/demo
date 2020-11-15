@@ -3,6 +3,7 @@ package com.example.demo.web;
 import com.example.demo.exception.MyFileNotFoundException;
 import com.example.demo.model.ImageFile;
 import com.example.demo.model.ImageFileRepository;
+import com.example.demo.payload.ComposeResponse;
 import com.example.demo.payload.UploadFileResponse;
 import com.example.demo.service.FileStorageService;
 import com.example.demo.util.ImageUtils;
@@ -34,8 +35,8 @@ import java.util.stream.Collectors;
 @RestController
 public class FileController {
 
-    private static final int FRAG_WIDTH = 5;
-    private static final int FRAG_HEIGHT = 5;
+    private static final int FRAG_WIDTH = 3;
+    private static final int FRAG_HEIGHT = 3;
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
 
     private static final Logger logger = LoggerFactory.getLogger(FileController.class);
@@ -51,7 +52,7 @@ public class FileController {
     @CrossOrigin(origins= "192.168.1.119:3000")
     @PostMapping("/uploadFile")
     public UploadFileResponse uploadFile(@RequestParam("file")MultipartFile file) {
-        logger.info("got the file! " + file.getOriginalFilename());
+        logger.info("got the file! " + file.getOriginalFilename()+ " size " + file.getSize());
         String fileName = fileStorageService.storeFile(file);
 
         String fileDownloadUri = getDownloadUri(fileName);
@@ -98,7 +99,7 @@ public class FileController {
     @CrossOrigin(origins= "192.168.1.119:3000")
     @GetMapping("/list")
     Collection<ImageFile> list() {
-        logger.info("trying ot list the files");
+        logger.info("trying to list the files");
         ArrayList<ImageFile> files = new ArrayList<>();
         List<Resource> resources = fileStorageService.loadResources();
         resources.forEach(resource -> {
@@ -122,10 +123,10 @@ public class FileController {
 
     @CrossOrigin(origins= "192.168.1.119:3000")
     @PostMapping("/compose")
-    public ResponseEntity<Resource> composeImage(@RequestParam("base") String baseFile,
-                                                 @RequestParam("mapper") String mapperFile,
-                                                 @RequestParam("resultName") String resultName,
-                                                 HttpServletRequest request) {
+    public ComposeResponse composeImage(@RequestParam("base") String baseFile,
+                                        @RequestParam("mapper") String mapperFile,
+                                        @RequestParam("resultName") String resultName,
+                                        HttpServletRequest request) {
         logger.info("request to remake '"+baseFile+"' with the components of '" +mapperFile +"'" +
                 " and store it as '" +resultName+"'");
         BufferedImage base;
@@ -135,10 +136,10 @@ public class FileController {
             mapper = loadOrientedFile(mapperFile);
         } catch (MyFileNotFoundException ex) {
             logger.info("Couldn't find one or more of the files the files "+ ex.getMessage());
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ComposeResponse();
         } catch (IOException iox) {
             logger.info("IOException " + iox.getMessage());
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return new ComposeResponse();
         }
 
         BufferedImage result = ImageUtils.remakeImage(mapper, base, FRAG_WIDTH, FRAG_HEIGHT);
@@ -150,20 +151,21 @@ public class FileController {
 
         Resource resource = fileStorageService.loadFileAsResource(filename);
         String contentType;
+        long size =0;
         try {
             contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
+            size = resource.getFile().getTotalSpace();
         } catch (IOException ex) {
             logger.info("Could not determine file type");
             //default content type
             contentType = DEFAULT_CONTENT_TYPE;
         }
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\""+ resource.getFilename() + "\"")
-                .body(resource);
+        return new ComposeResponse(filename, fileDownloadUri, contentType, size);
     }
 
     private String getDownloadUri(String fileName) {
+
+        String temp = ServletUriComponentsBuilder.fromCurrentRequest().toString();
         return ServletUriComponentsBuilder.fromCurrentContextPath()
                 .path("/downloadFile/")
                 .path(fileName)

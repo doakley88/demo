@@ -52,7 +52,7 @@ public class ImageUtils {
      */
     public static BufferedImage remakeImage(BufferedImage source, BufferedImage model, int fragWidth, int fragHeight) {
         //If the model is too big for us to process quickly, scale it down
-        BufferedImage normalizedModel = normalizeModel(model);
+        BufferedImage normalizedModel = normalizeImage(model);
         //If the two images are different sizes, scale the source to the model
         BufferedImage transformedSource = transformSource(source, normalizedModel);
 
@@ -63,8 +63,11 @@ public class ImageUtils {
         int columns = normalizedModel.getWidth()/fragWidth;
         int rows = normalizedModel.getHeight()/fragHeight;
         //The outer two loops fill one fragment each of the result image
-        for(int i = columns - 1; i > 0; i--) {
-            for(int j = rows - 1; j>0; j--) {
+        for(int i = 0; i < columns; i++) {
+            if(i % 10 == 0) {
+                log.info("Update: " + i+"/"+columns);
+            }
+            for(int j = 0; j< rows; j++) {
                 //find a source fragment that looks close to our model fragment
                 BufferedImage modelFrag = normalizedModel.getSubimage(i*fragWidth, j*fragHeight, fragWidth, fragHeight);
                 BufferedImage goodMatch = null;
@@ -103,6 +106,7 @@ public class ImageUtils {
                 }
             }
         }
+        log.info("finished up creating image");
         return result;
     }
 
@@ -148,7 +152,7 @@ public class ImageUtils {
     /**
      * Helper to ensure that the model image isn't too big for us. Should try to make outdated at some point.
      */
-    public static BufferedImage normalizeModel(BufferedImage model) {
+    public static BufferedImage normalizeImage(BufferedImage model) {
         BufferedImage result;
         if(model.getWidth() > MAX_WIDTH || model.getHeight() > MAX_HEIGHT) {
             log.info("Gonna have to scale the image down " + model.getWidth()+ " " + model.getHeight());

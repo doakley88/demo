@@ -3,6 +3,7 @@ package com.example.demo.service;
 import com.example.demo.exception.FileStorageException;
 import com.example.demo.exception.MyFileNotFoundException;
 import com.example.demo.property.FileStorageProperties;
+import com.example.demo.util.ImageUtils;
 import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
